@@ -44,7 +44,7 @@ npm run dev                  # http://localhost:3000
 | `alice@example.com` | `password` |
 | `bob@example.com` | `password` |
 
-Alice gets 3 sample requests and Bob gets 2, so you can check that one user can't see the other's data.
+Alice gets 5 sample requests and Bob gets 3, covering every status (Open, In progress, Resolved), so you can check that one user can't see the other's data. The seeder moves requests through the workflow with the same `StatusTransitionService` the API uses, so their versions and status history are real.
 
 ### Tests
 
@@ -172,12 +172,15 @@ Any exception rolls back the whole transaction, so a failed update never leaves 
 
 ## 6. Frontend
 
-- **Session-aware.** `AuthProvider` calls `/api/auth/me` on load. Pages under `/requests/*` sit behind `RequireAuth`, which redirects to `/login`. Any `401` from the API fires an event that signs the user out locally.
+- **Session-aware.** `AuthProvider` calls `/api/auth/me` on load. Pages under `/requests/*` sit behind `RequireAuth`, which redirects to `/login`. Any `401` from the API fires an event that signs the user out locally. If that happens mid-use (the session expired or was cleared), the user goes to `/login?expired=1&next=…`, sees "Your session has expired", and after signing in returns to the same page, search and filters included. `next` is only accepted if it starts with `/requests`, so it can't be used as an open redirect.
 - **List** (`/requests`). Search, status and priority filters plus pagination are stored in the URL query string, so they survive a refresh or the back button. All filtering and paging happens on the server. The page has loading, empty, "no matches" and error-with-retry states.
+- **Summary tiles.** Above the list, three tiles show how many requests are Open, In progress and Resolved; clicking one applies that status filter. The counts come from the existing list endpoint (`?status=X&per_page=1`, reading `meta.total`), so no extra API was added. With more statuses or heavy traffic I would replace this with one `GET /api/requests/summary` that returns grouped counts.
 - **Create** (`/requests/new`). The form checks inputs in the browser first, mirroring the server rules. Field errors from a `422` are shown next to each field, linked with `aria-describedby`.
 - **Detail** (`/requests/[id]`). Shows the current version and status, and a single action button for the next allowed status (taken from the server's `allowed_next_status`) with an optional remark. History is listed oldest first.
 - **Stale update (409).** The screen replaces its data with the latest request from the response, reloads the history, and explains that the request changed elsewhere. The user can then decide again using the fresh version.
-- Accessibility: every input has a `<label>`, alerts use `role="alert"`, there are live regions for status messages, and the layout is responsive (see the mobile screenshot).
+- **Detail** also shows a progress stepper (Open → In progress → Resolved) and the history as a timeline.
+- **Styling.** Plain Tailwind CSS, no component library. The colour palette comes from the Lalan Rubbers logo (navy `#16478E`, blue `#458BCA`, leaf green `#94C83D`) and is defined once as theme tokens in `src/app/globals.css`. Headings use Raleway.
+- Accessibility: every input has a `<label>` (the priority picker is a `<fieldset>` of radio buttons), alerts use `role="alert"`, there are live regions for status messages, and the layout is responsive (see the mobile screenshot).
 
 ---
 
@@ -220,14 +223,16 @@ Any exception rolls back the whole transaction, so a failed update never leaves 
 
 ## 10. AI Use & Verification
 
-<!-- TODO (Sanjana): review this section and make sure every statement is accurate before submitting. -->
-
 - **Tools used:** Claude Code (AI coding assistant).
-- **Work assisted:** setting up the Laravel and Next.js projects, writing the backend (migrations, enums, controllers, `StatusTransitionService`, error handling), the feature tests, the Next.js pages, and drafting this README.
+- **Work assisted:** setting up the Laravel and Next.js projects, writing the backend (migrations, enums, controllers, `StatusTransitionService`, error handling), the feature tests, the Next.js pages, the visual redesign of the UI using the Lalan Rubbers brand colours, and drafting this README.
 - **Representative prompt:** *"Build this Service Request Tracker assignment (Laravel API + Next.js UI) exactly as the brief specifies, with Sanctum auth, optimistic locking for status changes and at least six tests."*
 - **How the output was verified and corrected:**
   - Ran `php artisan test` (22 tests passing) and read each test against the brief's acceptance criteria.
   - Called every endpoint by hand with `curl`: CSRF cookie → login → `/me` → create → valid, stale and invalid transitions → history → logout. This confirmed the status codes and the JSON shape, including `419` when the CSRF header is missing.
   - Drove the UI in a headless browser through the full flow: redirect when signed out, wrong password, filters, create with validation errors, transition, a stale update from a second tab, opening another user's request, logout, and the mobile layout. The screenshots above come from that run.
-  - Corrections made along the way: switched to PHPUnit 12's `#[DataProvider]` attribute after the docblock form failed; rewrote two React effects flagged by the `react-hooks/set-state-in-effect` lint rule; turned off Next.js's experimental `cacheComponents` flag, which the template enables by default and this client-rendered UI doesn't need.
-- **Independent technical decision:** <!-- TODO (Sanjana): describe one decision you made yourself and why. -->
+  - Corrections made along the way: switched to PHPUnit 12's `#[DataProvider]` attribute after the docblock form failed; rewrote two React effects flagged by the `react-hooks/set-state-in-effect` lint rule; turned off Next.js's experimental `cacheComponents` flag, which the template enables by default and this client-rendered UI doesn't need; during the redesign, found (from the screenshots) that the shared `.input`/`.btn-*` classes were overriding Tailwind utilities such as `pl-9`, checked the compiled CSS to confirm it, and switched those few overrides to Tailwind's `!` modifier.
+- **Independent technical decision: return 404, not 403, for another user's request.** The brief allows either 403 or 404 for records that belong to someone else. I chose 404 and used it everywhere: detail, history and status update.
+  - **Why:** a 403 confirms that the record exists and only blocks access. With 403, someone could try IDs one by one and learn how many requests there are, or which IDs are in use. A 404 reveals nothing, because to that user the record doesn't exist.
+  - **How:** I didn't add an ownership check after loading the record. Every query starts from the signed-in user's own requests (`$request->user()->serviceRequests()->findOrFail($id)`), so another user's record can't be loaded at all. That also means a new endpoint can't accidentally skip the check.
+  - **Trade-off:** a user who follows a link to someone else's request gets "not found" instead of "access denied", which is slightly less clear. For an internal tool where people only manage their own requests, I think hiding which records exist is worth more. The UI says "This request does not exist or you do not have access to it" to cover both cases.
+  - **Tested:** `ServiceRequestAccessTest` checks that another user's detail, history and status update all return 404 and that nothing changes.

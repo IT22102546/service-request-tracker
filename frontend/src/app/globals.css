@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f9fafb;
-  --foreground: #111827;
+  --background: #f4f6fa;
+  --foreground: #0f1b2d;
 }
 
 @theme inline {
@@ -10,6 +10,35 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-raleway), var(--font-geist-sans), sans-serif;
+}
+
+/* Brand palette, taken from the Lalan Rubbers logo:
+   navy #16478E (wordmark), blue #458BCA (swoosh), leaf #94C83D (leaf), grey #54565B. */
+@theme {
+  --color-brand-50: #eef4fb;
+  --color-brand-100: #d9e6f5;
+  --color-brand-200: #b7cfeb;
+  --color-brand-300: #8bb1dd;
+  --color-brand-400: #458bca;
+  --color-brand-500: #2f72bb;
+  --color-brand-600: #1f5ba5;
+  --color-brand-700: #16478e;
+  --color-brand-800: #123b76;
+  --color-brand-900: #0f2f5e;
+  --color-brand-950: #0a1f3f;
+
+  --color-leaf-50: #f5faec;
+  --color-leaf-100: #e8f3d4;
+  --color-leaf-200: #d2e8ac;
+  --color-leaf-300: #b6d97a;
+  --color-leaf-400: #a3d057;
+  --color-leaf-500: #94c83d;
+  --color-leaf-600: #76a52b;
+  --color-leaf-700: #5a7e22;
+  --color-leaf-800: #47621f;
+
+  --color-ink: #54565b;
 }
 
 body {
@@ -18,13 +47,36 @@ body {
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
 
-/* Shared form control look */
+h1,
+h2 {
+  font-family: var(--font-display);
+}
+
+/* Shared building blocks. Add "!" to a utility (e.g. pl-9!) to override these. */
+.card {
+  @apply rounded-xl border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(16,48,94,0.04),0_1px_6px_-2px_rgba(16,48,94,0.06)];
+}
+.label {
+  @apply mb-1.5 block text-sm font-medium text-slate-700;
+}
+.hint {
+  @apply font-normal text-slate-400;
+}
+.field-error {
+  @apply mt-1.5 text-sm text-red-600;
+}
+.eyebrow {
+  @apply text-[11px] font-semibold tracking-[0.08em] text-slate-400 uppercase;
+}
 .input {
-  @apply w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200;
+  @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-400/15 aria-[invalid=true]:border-red-400 aria-[invalid=true]:focus:ring-red-500/15;
 }
 .btn-primary {
-  @apply rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50;
+  @apply inline-flex items-center justify-center gap-2 rounded-lg bg-brand-700 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-brand-900/20 transition hover:bg-brand-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-400/35 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50;
 }
 .btn-secondary {
-  @apply rounded border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50;
+  @apply inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-400 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-400/20 disabled:cursor-not-allowed disabled:opacity-50;
+}
+.link {
+  @apply font-medium text-brand-600 hover:text-brand-800 hover:underline;
 }

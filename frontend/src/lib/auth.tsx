@@ -7,7 +7,7 @@ import type { User } from "./types";
 type AuthState =
   | { status: "loading"; user: null }
   | { status: "authenticated"; user: User }
-  | { status: "guest"; user: null };
+  | { status: "guest"; user: null; expired?: boolean };
 
 interface AuthContextValue {
   state: AuthState;
@@ -32,9 +32,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // Any 401 from the API (e.g. expired session) signs the user out locally.
+  // Any 401 from the API signs the user out locally. If they were signed in a
+  // moment ago, the server-side session expired (or was cleared), so remember
+  // that to explain it on the login page. Later 401s from parallel requests keep the flag.
   useEffect(() => {
-    const onUnauthenticated = () => setState({ status: "guest", user: null });
+    const onUnauthenticated = () =>
+      setState((prev) =>
+        prev.status === "guest" ? prev : { status: "guest", user: null, expired: prev.status === "authenticated" },
+      );
     window.addEventListener(UNAUTHENTICATED_EVENT, onUnauthenticated);
     return () => window.removeEventListener(UNAUTHENTICATED_EVENT, onUnauthenticated);
   }, []);

@@ -1,3 +1,17 @@
+const styles = {
+  error: { box: "border-red-200 bg-red-50 text-red-800", icon: "text-red-500" },
+  warning: { box: "border-amber-200 bg-amber-50 text-amber-900", icon: "text-amber-500" },
+  info: { box: "border-brand-200 bg-brand-50 text-brand-900", icon: "text-brand-500" },
+  success: { box: "border-leaf-200 bg-leaf-50 text-leaf-800", icon: "text-leaf-600" },
+};
+
+const icons = {
+  error: "M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z",
+  warning: "M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z",
+  info: "M12 16v-4m0-4h.01M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0Z",
+  success: "m9 12 2 2 4-4m7 2a10 10 0 1 1-20 0 10 10 0 0 1 20 0Z",
+};
+
 export function Alert({
   kind = "error",
   children,
@@ -5,24 +19,34 @@ export function Alert({
   kind?: "error" | "warning" | "info" | "success";
   children: React.ReactNode;
 }) {
-  const styles = {
-    error: "border-red-300 bg-red-50 text-red-800",
-    warning: "border-amber-300 bg-amber-50 text-amber-900",
-    info: "border-blue-300 bg-blue-50 text-blue-800",
-    success: "border-green-300 bg-green-50 text-green-800",
-  }[kind];
-
+  const s = styles[kind];
   return (
-    <div role={kind === "error" || kind === "warning" ? "alert" : "status"} className={`rounded border px-4 py-3 text-sm ${styles}`}>
-      {children}
+    <div
+      role={kind === "error" || kind === "warning" ? "alert" : "status"}
+      className={`flex gap-3 rounded-lg border px-4 py-3 text-sm ${s.box}`}
+    >
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className={`mt-0.5 h-4 w-4 shrink-0 ${s.icon}`}
+      >
+        <path d={icons[kind]} />
+      </svg>
+      <div className="min-w-0">{children}</div>
     </div>
   );
 }
 
 export function Spinner({ label = "Loading…" }: { label?: string }) {
   return (
-    <p role="status" aria-live="polite" className="py-8 text-center text-sm text-gray-500">
+    <div role="status" aria-live="polite" className="flex flex-col items-center justify-center gap-3 py-16 text-sm text-slate-500">
+      <span aria-hidden="true" className="h-6 w-6 animate-spin rounded-full border-2 border-slate-200 border-t-brand-700" />
       {label}
-    </p>
+    </div>
   );
 }
