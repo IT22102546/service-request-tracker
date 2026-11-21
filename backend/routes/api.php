@@ -17,5 +17,6 @@ Route::middleware('auth:sanctum')->prefix('requests')->group(function () {
     Route::get('/', [ServiceRequestController::class, 'index']);
     Route::post('/', [ServiceRequestController::class, 'store']);
     Route::get('{id}', [ServiceRequestController::class, 'show'])->whereNumber('id');
+    Route::patch('{id}/status', [ServiceRequestController::class, 'updateStatus'])->whereNumber('id');
     Route::get('{id}/history', [ServiceRequestController::class, 'history'])->whereNumber('id');
 });
