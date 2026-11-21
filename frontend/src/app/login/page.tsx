@@ -1,7 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import { Alert, Spinner } from "@/components/Alert";
 import { Logo } from "@/components/Header";
 import { ApiError } from "@/lib/api";
@@ -12,9 +12,25 @@ const DEMO_ACCOUNTS = [
   { name: "Bob", email: "bob@example.com" },
 ];
 
+/** Only allow returning to pages inside the app (prevents open redirects). */
+function safeNext(value: string | null): string {
+  return value && value.startsWith("/requests") ? value : "/requests";
+}
+
 export default function LoginPage() {
+  return (
+    <Suspense fallback={<Spinner label="Checking your session…" />}>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const { state, login } = useAuth();
   const router = useRouter();
+  const params = useSearchParams();
+  const next = safeNext(params.get("next"));
+  const expired = params.get("expired") === "1";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -23,8 +39,8 @@ export default function LoginPage() {
 
   // Already signed in → go straight to the app.
   useEffect(() => {
-    if (state.status === "authenticated") router.replace("/requests");
-  }, [state.status, router]);
+    if (state.status === "authenticated") router.replace(next);
+  }, [state.status, router, next]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -33,7 +49,7 @@ export default function LoginPage() {
     setFieldErrors({});
     try {
       await login(email, password);
-      router.replace("/requests");
+      router.replace(next);
     } catch (err) {
       if (err instanceof ApiError && err.status === 422) {
         const fields = err.fieldErrors();
@@ -101,6 +117,9 @@ export default function LoginPage() {
           <p className="mt-1 mb-8 text-sm text-slate-500">Sign in to manage your service requests.</p>
 
           <form onSubmit={onSubmit} noValidate className="space-y-5">
+            {expired && !error && (
+              <Alert kind="info">Your session has expired. Please sign in again to continue where you left off.</Alert>
+            )}
             {error && <Alert>{error}</Alert>}
 
             <div>
