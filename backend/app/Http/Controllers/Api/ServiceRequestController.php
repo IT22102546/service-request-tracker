@@ -6,9 +6,11 @@ use App\Enums\RequestStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ListServiceRequestsRequest;
 use App\Http\Requests\StoreServiceRequestRequest;
+use App\Http\Requests\UpdateStatusRequest;
 use App\Http\Resources\ServiceRequestResource;
 use App\Http\Resources\StatusHistoryResource;
 use App\Models\ServiceRequest;
+use App\Services\StatusTransitionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -56,6 +58,24 @@ class ServiceRequestController extends Controller
     public function show(Request $request, int $id): ServiceRequestResource
     {
         return new ServiceRequestResource($this->findOwned($request, $id));
+    }
+
+    public function updateStatus(
+        UpdateStatusRequest $request,
+        int $id,
+        StatusTransitionService $transitions,
+    ): ServiceRequestResource {
+        $serviceRequest = $this->findOwned($request, $id);
+
+        $updated = $transitions->transition(
+            $serviceRequest,
+            $request->user(),
+            RequestStatus::from($request->validated('status')),
+            (int) $request->validated('expected_version'),
+            $request->validated('remark'),
+        );
+
+        return new ServiceRequestResource($updated);
     }
 
     public function history(Request $request, int $id): AnonymousResourceCollection
