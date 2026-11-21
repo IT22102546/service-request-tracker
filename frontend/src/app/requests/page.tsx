@@ -31,34 +31,44 @@ function RequestList() {
   const priority = params.get("priority") ?? "";
   const page = Math.max(1, Number(params.get("page")) || 1);
 
-  const [searchInput, setSearchInput] = useState(search);
-  const [result, setResult] = useState<Paginated<ServiceRequest> | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
   const [reloadKey, setReloadKey] = useState(0);
 
-  useEffect(() => setSearchInput(search), [search]);
+  const query = new URLSearchParams({ page: String(page), per_page: String(PER_PAGE) });
+  if (search) query.set("search", search);
+  if (status) query.set("status", status);
+  if (priority) query.set("priority", priority);
+  const requestKey = `${query}#${reloadKey}`;
+
+  // Each response is stored with the key it was fetched for; while the
+  // latest key has no response yet, the list is "loading".
+  const [response, setResponse] = useState<{
+    key: string;
+    result?: Paginated<ServiceRequest>;
+    error?: string;
+  } | null>(null);
+  const [lastResult, setLastResult] = useState<Paginated<ServiceRequest> | null>(null);
 
   useEffect(() => {
-    const query = new URLSearchParams({ page: String(page), per_page: String(PER_PAGE) });
-    if (search) query.set("search", search);
-    if (status) query.set("status", status);
-    if (priority) query.set("priority", priority);
-
     let cancelled = false;
-    setLoading(true);
-    setError(null);
-    apiFetch<Paginated<ServiceRequest>>(`/api/requests?${query}`)
-      .then((res) => !cancelled && setResult(res))
+    const qs = requestKey.split("#")[0];
+    apiFetch<Paginated<ServiceRequest>>(`/api/requests?${qs}`)
+      .then((res) => {
+        if (cancelled) return;
+        setResponse({ key: requestKey, result: res });
+        setLastResult(res);
+      })
       .catch((err) => {
         if (cancelled || (err instanceof ApiError && err.status === 401)) return;
-        setError(err instanceof Error ? err.message : "Could not load requests.");
-      })
-      .finally(() => !cancelled && setLoading(false));
+        setResponse({ key: requestKey, error: err instanceof Error ? err.message : "Could not load requests." });
+      });
     return () => {
       cancelled = true;
     };
-  }, [search, status, priority, page, reloadKey]);
+  }, [requestKey]);
+
+  const loading = response?.key !== requestKey;
+  const error = !loading ? (response?.error ?? null) : null;
+  const result = loading ? lastResult : (response?.result ?? null);
 
   function updateQuery(changes: Record<string, string>) {
     const next = new URLSearchParams(params.toString());
@@ -84,65 +94,16 @@ function RequestList() {
         </Link>
       </div>
 
-      <form
-        role="search"
-        onSubmit={(e) => {
-          e.preventDefault();
-          updateQuery({ search: searchInput.trim() });
-        }}
-        className="grid gap-3 rounded-lg border border-gray-200 bg-white p-4 sm:grid-cols-[1fr_auto_auto_auto] sm:items-end"
-      >
-        <div>
-          <label htmlFor="search" className="mb-1 block text-sm font-medium">
-            Search by title
-          </label>
-          <input
-            id="search"
-            type="search"
-            maxLength={100}
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="e.g. printer"
-            className="input"
-          />
-        </div>
-        <div>
-          <label htmlFor="status" className="mb-1 block text-sm font-medium">
-            Status
-          </label>
-          <select id="status" value={status} onChange={(e) => updateQuery({ status: e.target.value })} className="input">
-            <option value="">All statuses</option>
-            {STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {statusLabel(s)}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label htmlFor="priority" className="mb-1 block text-sm font-medium">
-            Priority
-          </label>
-          <select id="priority" value={priority} onChange={(e) => updateQuery({ priority: e.target.value })} className="input">
-            <option value="">All priorities</option>
-            {PRIORITIES.map((p) => (
-              <option key={p} value={p}>
-                {priorityLabel(p)}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="flex gap-2">
-          <button type="submit" className="btn-primary">
-            Search
-          </button>
-          {hasFilters && (
-            <button type="button" className="btn-secondary" onClick={() => router.push(pathname)}>
-              Clear
-            </button>
-          )}
-        </div>
-      </form>
+      <FilterForm
+        key={search}
+        initialSearch={search}
+        status={status}
+        priority={priority}
+        hasFilters={hasFilters}
+        onSearch={(value) => updateQuery({ search: value })}
+        onChange={updateQuery}
+        onClear={() => router.push(pathname)}
+      />
 
       {error && (
         <Alert>
@@ -221,5 +182,87 @@ function RequestList() {
         </div>
       ) : null}
     </div>
+  );
+}
+
+function FilterForm({
+  initialSearch,
+  status,
+  priority,
+  hasFilters,
+  onSearch,
+  onChange,
+  onClear,
+}: {
+  initialSearch: string;
+  status: string;
+  priority: string;
+  hasFilters: boolean;
+  onSearch: (value: string) => void;
+  onChange: (changes: Record<string, string>) => void;
+  onClear: () => void;
+}) {
+  const [searchInput, setSearchInput] = useState(initialSearch);
+
+  return (
+    <form
+      role="search"
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSearch(searchInput.trim());
+      }}
+      className="grid gap-3 rounded-lg border border-gray-200 bg-white p-4 sm:grid-cols-[1fr_auto_auto_auto] sm:items-end"
+    >
+      <div>
+        <label htmlFor="search" className="mb-1 block text-sm font-medium">
+          Search by title
+        </label>
+        <input
+          id="search"
+          type="search"
+          maxLength={100}
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          placeholder="e.g. printer"
+          className="input"
+        />
+      </div>
+      <div>
+        <label htmlFor="status" className="mb-1 block text-sm font-medium">
+          Status
+        </label>
+        <select id="status" value={status} onChange={(e) => onChange({ status: e.target.value })} className="input">
+          <option value="">All statuses</option>
+          {STATUSES.map((s) => (
+            <option key={s} value={s}>
+              {statusLabel(s)}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label htmlFor="priority" className="mb-1 block text-sm font-medium">
+          Priority
+        </label>
+        <select id="priority" value={priority} onChange={(e) => onChange({ priority: e.target.value })} className="input">
+          <option value="">All priorities</option>
+          {PRIORITIES.map((p) => (
+            <option key={p} value={p}>
+              {priorityLabel(p)}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="flex gap-2">
+        <button type="submit" className="btn-primary">
+          Search
+        </button>
+        {hasFilters && (
+          <button type="button" className="btn-secondary" onClick={onClear}>
+            Clear
+          </button>
+        )}
+      </div>
+    </form>
   );
 }
