@@ -44,7 +44,7 @@ npm run dev                  # http://localhost:3000
 | `alice@example.com` | `password` |
 | `bob@example.com` | `password` |
 
-Alice gets 3 sample requests and Bob gets 2, so you can check that one user can't see the other's data.
+Alice gets 5 sample requests and Bob gets 3, covering every status (Open, In progress, Resolved), so you can check that one user can't see the other's data. The seeder moves requests through the workflow with the same `StatusTransitionService` the API uses, so their versions and status history are real.
 
 ### Tests
 
@@ -172,7 +172,7 @@ Any exception rolls back the whole transaction, so a failed update never leaves 
 
 ## 6. Frontend
 
-- **Session-aware.** `AuthProvider` calls `/api/auth/me` on load. Pages under `/requests/*` sit behind `RequireAuth`, which redirects to `/login`. Any `401` from the API fires an event that signs the user out locally.
+- **Session-aware.** `AuthProvider` calls `/api/auth/me` on load. Pages under `/requests/*` sit behind `RequireAuth`, which redirects to `/login`. Any `401` from the API fires an event that signs the user out locally. If that happens mid-use (the session expired or was cleared), the user goes to `/login?expired=1&next=…`, sees "Your session has expired", and after signing in returns to the same page, search and filters included. `next` is only accepted if it starts with `/requests`, so it can't be used as an open redirect.
 - **List** (`/requests`). Search, status and priority filters plus pagination are stored in the URL query string, so they survive a refresh or the back button. All filtering and paging happens on the server. The page has loading, empty, "no matches" and error-with-retry states.
 - **Summary tiles.** Above the list, three tiles show how many requests are Open, In progress and Resolved; clicking one applies that status filter. The counts come from the existing list endpoint (`?status=X&per_page=1`, reading `meta.total`), so no extra API was added. With more statuses or heavy traffic I would replace this with one `GET /api/requests/summary` that returns grouped counts.
 - **Create** (`/requests/new`). The form checks inputs in the browser first, mirroring the server rules. Field errors from a `422` are shown next to each field, linked with `aria-describedby`.
