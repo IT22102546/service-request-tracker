@@ -223,8 +223,6 @@ Any exception rolls back the whole transaction, so a failed update never leaves 
 
 ## 10. AI Use & Verification
 
-<!-- TODO (Sanjana): review this section and make sure every statement is accurate before submitting. -->
-
 - **Tools used:** Claude Code (AI coding assistant).
 - **Work assisted:** setting up the Laravel and Next.js projects, writing the backend (migrations, enums, controllers, `StatusTransitionService`, error handling), the feature tests, the Next.js pages, the visual redesign of the UI using the Lalan Rubbers brand colours, and drafting this README.
 - **Representative prompt:** *"Build this Service Request Tracker assignment (Laravel API + Next.js UI) exactly as the brief specifies, with Sanctum auth, optimistic locking for status changes and at least six tests."*
@@ -233,4 +231,8 @@ Any exception rolls back the whole transaction, so a failed update never leaves 
   - Called every endpoint by hand with `curl`: CSRF cookie → login → `/me` → create → valid, stale and invalid transitions → history → logout. This confirmed the status codes and the JSON shape, including `419` when the CSRF header is missing.
   - Drove the UI in a headless browser through the full flow: redirect when signed out, wrong password, filters, create with validation errors, transition, a stale update from a second tab, opening another user's request, logout, and the mobile layout. The screenshots above come from that run.
   - Corrections made along the way: switched to PHPUnit 12's `#[DataProvider]` attribute after the docblock form failed; rewrote two React effects flagged by the `react-hooks/set-state-in-effect` lint rule; turned off Next.js's experimental `cacheComponents` flag, which the template enables by default and this client-rendered UI doesn't need; during the redesign, found (from the screenshots) that the shared `.input`/`.btn-*` classes were overriding Tailwind utilities such as `pl-9`, checked the compiled CSS to confirm it, and switched those few overrides to Tailwind's `!` modifier.
-- **Independent technical decision:** <!-- TODO (Sanjana): describe one decision you made yourself and why. -->
+- **Independent technical decision: return 404, not 403, for another user's request.** The brief allows either 403 or 404 for records that belong to someone else. I chose 404 and used it everywhere: detail, history and status update.
+  - **Why:** a 403 confirms that the record exists and only blocks access. With 403, someone could try IDs one by one and learn how many requests there are, or which IDs are in use. A 404 reveals nothing, because to that user the record doesn't exist.
+  - **How:** I didn't add an ownership check after loading the record. Every query starts from the signed-in user's own requests (`$request->user()->serviceRequests()->findOrFail($id)`), so another user's record can't be loaded at all. That also means a new endpoint can't accidentally skip the check.
+  - **Trade-off:** a user who follows a link to someone else's request gets "not found" instead of "access denied", which is slightly less clear. For an internal tool where people only manage their own requests, I think hiding which records exist is worth more. The UI says "This request does not exist or you do not have access to it" to cover both cases.
+  - **Tested:** `ServiceRequestAccessTest` checks that another user's detail, history and status update all return 404 and that nothing changes.
