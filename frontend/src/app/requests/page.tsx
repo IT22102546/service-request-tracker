@@ -332,7 +332,13 @@ function FilterForm({
           type="search"
           maxLength={100}
           value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
+          onChange={(e) => {
+            const value = e.target.value;
+            setSearchInput(value);
+            // Emptying the box (typing it away or the browser's ✕ button) clears the
+            // applied search straight away, so the full list comes back without pressing Clear.
+            if (value === "" && initialSearch !== "") onSearch("");
+          }}
           placeholder="e.g. printer"
           className="input pl-9!"
         />
